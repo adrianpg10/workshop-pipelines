@@ -94,30 +94,27 @@ spec:
                 sh './mvnw compile'
             }
         }
-        stage('Unit tests') {
+
+        stage('Code inspection & quality gate') {
             steps {
-                echo '-=- execute unit tests -=-'
-                sh './mvnw test org.jacoco:jacoco-maven-plugin:report'
-                junit 'target/surefire-reports/*.xml'
-                jacoco execPattern: 'target/jacoco.exec'
+                echo '-=- run code inspection & check quality gate -=-'
+                withSonarQubeEnv('ci-sonarqube') {
+                    sh './mvnw sonar:sonar'
+                }
+                timeout(time: 10, unit: 'MINUTES') {
+                    waitForQualityGate abortPipeline: true
+                }
             }
         }
+
         stage('Mutation tests') {
             steps {
                 echo '-=- execute mutation tests -=-'
                 sh './mvnw org.pitest:pitest-maven:mutationCoverage'
             }
         }
-        stage('Quality Gates') {
-            steps {
-                echo '-=- running quality gates -=-'
-                script {
-                    qualityGates = readYaml file: 'quality-gates.yaml'
-                    // Implement logic to check quality gates and handle success/failure
-                }
-            }
-        }
-                stage('Software composition analysis') {
+
+        stage('Software composition analysis') {
             steps {
                 echo '-=- run software composition analysis -=-'
                 sh './mvnw dependency-check:check'
@@ -135,7 +132,8 @@ spec:
                 }
             }
         }
-                stage('Package') {
+
+        stage('Package') {
             steps {
                 echo '-=- packaging project -=-'
                 sh './mvnw package -DskipTests'
@@ -169,7 +167,16 @@ spec:
             }
         }
 
-                stage('Integration tests') {
+        stage('Unit tests') {
+            steps {
+                echo '-=- execute unit tests -=-'
+                sh './mvnw test org.jacoco:jacoco-maven-plugin:report'
+                junit 'target/surefire-reports/*.xml'
+                jacoco execPattern: 'target/jacoco.exec'
+            }
+        }
+
+        stage('Integration tests') {
             steps {
                 echo '-=- execute integration tests -=-'
                 sh "curl --retry 10 --retry-connrefused --connect-timeout 5 --max-time 5 ${EPHTEST_BASE_URL}actuator/health"
@@ -191,33 +198,7 @@ spec:
             }
         }
 
-        stage('Promote container image') {
-            steps {
-                echo '-=- promote container image -=-'
-                container('podman') {
-                    // when using latest or a non-snapshot tag to deploy GA version
-                    // this tag push should trigger the change in staging/production environment
-                    sh "podman tag $IMAGE_SNAPSHOT $CONTAINER_REGISTRY_URL/$IMAGE_GA"
-                    sh "podman push $CONTAINER_REGISTRY_URL/$IMAGE_GA"
-                    sh "podman tag $IMAGE_SNAPSHOT $CONTAINER_REGISTRY_URL/$IMAGE_GA_LATEST"
-                    sh "podman push $CONTAINER_REGISTRY_URL/$IMAGE_GA_LATEST"
-                }
-            }
-        }
-
-        stage('Code inspection & quality gate') {
-            steps {
-                echo '-=- run code inspection & check quality gate -=-'
-                withSonarQubeEnv('ci-sonarqube') {
-                    sh './mvnw sonar:sonar'
-                }
-                timeout(time: 10, unit: 'MINUTES') {
-                    waitForQualityGate abortPipeline: true
-                }
-            }
-        }
-
-            stage('Web page performance analysis') {
+        stage('Web page performance analysis') {
             steps {
                 echo '-=- execute web page performance analysis -=-'
                 container('lhci') {
@@ -229,6 +210,20 @@ spec:
                       lhci assert --preset=lighthouse:recommended --includePassedAssertions
                       lhci upload --token $LIGHTHOUSE_TOKEN --serverBaseUrl $LIGHTHOUSE_URL --ignoreDuplicateBuildFailure
                     """
+                }
+            }
+        }
+        
+        stage('Promote container image') {
+            steps {
+                echo '-=- promote container image -=-'
+                container('podman') {
+                    // when using latest or a non-snapshot tag to deploy GA version
+                    // this tag push should trigger the change in staging/production environment
+                    sh "podman tag $IMAGE_SNAPSHOT $CONTAINER_REGISTRY_URL/$IMAGE_GA"
+                    sh "podman push $CONTAINER_REGISTRY_URL/$IMAGE_GA"
+                    sh "podman tag $IMAGE_SNAPSHOT $CONTAINER_REGISTRY_URL/$IMAGE_GA_LATEST"
+                    sh "podman push $CONTAINER_REGISTRY_URL/$IMAGE_GA_LATEST"
                 }
             }
         }
