@@ -1,30 +1,33 @@
-stages:
-  - build
-  - test
-  - deploy
-
-quality_gate:
-  stage: test
-  rules:
-    - code_quality:
-        threshold: 90
-    - unit_test_coverage:
-        threshold: 80
-    - security_scan:
-        threshold: 0
-
-jobs:
-  - build:
-      stage: build
-      script:
-        - # Build your project here
-
-  - test:
-      stage: test
-      script:
-        - # Run your unit tests and other tests here
-
-  - deploy:
-      stage: deploy
-      script:
-        - # Deploy your application to the production environment
+performance:
+  throughput:
+    error:
+      unstable: 0
+      failed: 5
+    response:
+      unstable: 'default.jtl:100'
+ 
+security:
+  static:
+    high:
+      unstable: 0
+      failed: 0
+    medium:
+      unstable: 0
+      failed: 5
+  dynamic:
+    high:
+      unstable: 0
+      failed: 0
+    medium:
+      unstable: 0
+      failed: 5
+  dependencies:
+    critical:
+      unstable: 10
+      failed: 10
+    high:
+      unstable: 10
+      failed: 10
+    medium:
+      unstable: 15
+      failed: 15
