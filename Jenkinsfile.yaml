@@ -215,6 +215,7 @@ spec:
                     waitForQualityGate abortPipeline: true
                 }
             }
+        }
 
             stage('Web page performance analysis') {
             steps {
@@ -231,7 +232,7 @@ spec:
                 }
             }
         }
-        }
+        
         
     }
     post {
